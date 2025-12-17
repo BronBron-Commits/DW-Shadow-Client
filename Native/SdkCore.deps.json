@@ -1,0 +1,173 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v9.0/win-x64",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v9.0": {},
+    ".NETCoreApp,Version=v9.0/win-x64": {
+      "SdkCore/1.0.0": {
+        "dependencies": {
+          "BouncyCastle.Cryptography": "2.5.1",
+          "DotNext": "5.20.0",
+          "DotNext.Unsafe": "5.20.0",
+          "System.Linq.Async": "6.0.1",
+          "System.Linq.Async.Queryable": "6.0.1",
+          "System.Text.Encoding.CodePages": "9.0.3",
+          "System.Threading.RateLimiting": "9.0.3"
+        },
+        "runtime": {
+          "SdkCore.dll": {}
+        }
+      },
+      "BouncyCastle.Cryptography/2.5.1": {
+        "runtime": {
+          "lib/net6.0/BouncyCastle.Cryptography.dll": {
+            "assemblyVersion": "2.0.0.0",
+            "fileVersion": "2.5.1.28965"
+          }
+        }
+      },
+      "DotNext/5.20.0": {
+        "dependencies": {
+          "System.IO.Hashing": "8.0.0"
+        },
+        "runtime": {
+          "lib/net8.0/DotNext.dll": {
+            "assemblyVersion": "5.20.0.0",
+            "fileVersion": "5.20.0.0"
+          }
+        }
+      },
+      "DotNext.Unsafe/5.20.0": {
+        "dependencies": {
+          "DotNext": "5.20.0"
+        },
+        "runtime": {
+          "lib/net8.0/DotNext.Unsafe.dll": {
+            "assemblyVersion": "5.20.0.0",
+            "fileVersion": "5.20.0.0"
+          }
+        }
+      },
+      "Microsoft.Bcl.AsyncInterfaces/6.0.0": {
+        "runtime": {
+          "lib/netstandard2.1/Microsoft.Bcl.AsyncInterfaces.dll": {
+            "assemblyVersion": "6.0.0.0",
+            "fileVersion": "6.0.21.52210"
+          }
+        }
+      },
+      "System.IO.Hashing/8.0.0": {
+        "runtime": {
+          "lib/net8.0/System.IO.Hashing.dll": {
+            "assemblyVersion": "8.0.0.0",
+            "fileVersion": "8.0.23.53103"
+          }
+        }
+      },
+      "System.Linq.Async/6.0.1": {
+        "dependencies": {
+          "Microsoft.Bcl.AsyncInterfaces": "6.0.0"
+        },
+        "runtime": {
+          "lib/net6.0/System.Linq.Async.dll": {
+            "assemblyVersion": "6.0.0.0",
+            "fileVersion": "6.0.1.35981"
+          }
+        }
+      },
+      "System.Linq.Async.Queryable/6.0.1": {
+        "dependencies": {
+          "System.Linq.Async": "6.0.1"
+        },
+        "runtime": {
+          "lib/net6.0/System.Linq.Async.Queryable.dll": {
+            "assemblyVersion": "6.0.0.0",
+            "fileVersion": "6.0.1.35981"
+          }
+        }
+      },
+      "System.Text.Encoding.CodePages/9.0.3": {},
+      "System.Threading.RateLimiting/9.0.3": {
+        "runtime": {
+          "lib/net9.0/System.Threading.RateLimiting.dll": {
+            "assemblyVersion": "9.0.0.0",
+            "fileVersion": "9.0.325.11113"
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "SdkCore/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    },
+    "BouncyCastle.Cryptography/2.5.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-zy8TMeTP+1FH2NrLaNZtdRbBdq7u5MI+NFZQOBSM69u5RFkciinwzV2eveY6Kjf5MzgsYvvl6kTStsj3JrXqkg==",
+      "path": "bouncycastle.cryptography/2.5.1",
+      "hashPath": "bouncycastle.cryptography.2.5.1.nupkg.sha512"
+    },
+    "DotNext/5.20.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-+Bdjq7B9ZRMVYNEpbNHMGh9KfGjGDJwQ/RQX0KKZJjJcNNlLBvoMyUaMpcXykWIBD/5U5fiWGDJf0pCPnnQE/A==",
+      "path": "dotnext/5.20.0",
+      "hashPath": "dotnext.5.20.0.nupkg.sha512"
+    },
+    "DotNext.Unsafe/5.20.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-AkAyhDxdKkkpUG/gq15R2YzAiHpCT9ZRqrWhk17L4HyT8g6YMO2Wu2RjVOEA1ZB+og7+qFXHS1ODvos8ISqR+A==",
+      "path": "dotnext.unsafe/5.20.0",
+      "hashPath": "dotnext.unsafe.5.20.0.nupkg.sha512"
+    },
+    "Microsoft.Bcl.AsyncInterfaces/6.0.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-UcSjPsst+DfAdJGVDsu346FX0ci0ah+lw3WRtn18NUwEqRt70HaOQ7lI72vy3+1LxtqI3T5GWwV39rQSrCzAeg==",
+      "path": "microsoft.bcl.asyncinterfaces/6.0.0",
+      "hashPath": "microsoft.bcl.asyncinterfaces.6.0.0.nupkg.sha512"
+    },
+    "System.IO.Hashing/8.0.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-ne1843evDugl0md7Fjzy6QjJrzsjh46ZKbhf8GwBXb5f/gw97J4bxMs0NQKifDuThh/f0bZ0e62NPl1jzTuRqA==",
+      "path": "system.io.hashing/8.0.0",
+      "hashPath": "system.io.hashing.8.0.0.nupkg.sha512"
+    },
+    "System.Linq.Async/6.0.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-0YhHcaroWpQ9UCot3Pizah7ryAzQhNvobLMSxeDIGmnXfkQn8u5owvpOH0K6EVB+z9L7u6Cc4W17Br/+jyttEQ==",
+      "path": "system.linq.async/6.0.1",
+      "hashPath": "system.linq.async.6.0.1.nupkg.sha512"
+    },
+    "System.Linq.Async.Queryable/6.0.1": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-2kjCNQ/Un1fYq1oujwkiCeMzypWYeatpxbTwgoDhNMw8QTTkadxrTJMwPtLg+r2/qNTYyyiVc4oCsin7633vgA==",
+      "path": "system.linq.async.queryable/6.0.1",
+      "hashPath": "system.linq.async.queryable.6.0.1.nupkg.sha512"
+    },
+    "System.Text.Encoding.CodePages/9.0.3": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-80ABiml18jG+6PB6GmrOyMlWla66f4Tp6RgUCJXZLki1Zu+yqbflXvweT86j2xImKHXoVgivto25Z8P5+FO85w==",
+      "path": "system.text.encoding.codepages/9.0.3",
+      "hashPath": "system.text.encoding.codepages.9.0.3.nupkg.sha512"
+    },
+    "System.Threading.RateLimiting/9.0.3": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-wP74ulPFlU+1QzMKm5o3BZdkULKRMBWYiwZiZkmUBlF0iyfh2DEV9oJfYc+CXcSa4508gqkMhPxSdwUcWhrMWQ==",
+      "path": "system.threading.ratelimiting/9.0.3",
+      "hashPath": "system.threading.ratelimiting.9.0.3.nupkg.sha512"
+    }
+  }
+}
