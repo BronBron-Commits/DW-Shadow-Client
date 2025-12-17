@@ -10,16 +10,8 @@ namespace SocketClient
 {
     internal static class ShadowClient
     {
-        // =========================================================
-        // Target
-        // =========================================================
-
         private const string HOST = "auth.deltaworlds.com";
         private const int PORT = 6671;
-
-        // =========================================================
-        // Entry
-        // =========================================================
 
         static void Main()
         {
@@ -29,10 +21,6 @@ namespace SocketClient
             var sw = Stopwatch.StartNew();
 
             using var client = new TcpClient { NoDelay = true };
-
-            // -----------------------------------------------------
-            // PHASE 1: TCP CONNECT
-            // -----------------------------------------------------
 
             Log("connecting...");
             client.Connect(HOST, PORT);
@@ -44,10 +32,9 @@ namespace SocketClient
 
             Thread.Sleep(TimingProfile.AfterConnectDelay);
 
-            // -----------------------------------------------------
-            // PHASE 2: VERIFIED CLIENT HELLO
-            // -----------------------------------------------------
-
+            // =====================================================
+            // PHASE 1 — VERIFIED CLIENT HELLO
+            // =====================================================
             byte[] clientHello =
             {
                 0x00, 0x0A,
@@ -61,22 +48,11 @@ namespace SocketClient
 
             Thread.Sleep(TimingProfile.BeforeLoginDelay);
 
-            // -----------------------------------------------------
-            // PHASE 3: RECEIVE SERVER ENVELOPE
-            // -----------------------------------------------------
-
+            // =====================================================
+            // PHASE 1 RESPONSE — SERVER ENVELOPE
+            // =====================================================
             byte[] buffer = new byte[8192];
-            int read;
-
-            try
-            {
-                read = stream.Read(buffer, 0, buffer.Length);
-            }
-            catch (Exception ex)
-            {
-                Log($"READ ERROR: {ex.GetType().Name} {ex.Message}");
-                return;
-            }
+            int read = stream.Read(buffer, 0, buffer.Length);
 
             if (read <= 0)
             {
@@ -90,78 +66,49 @@ namespace SocketClient
             Log($"received server envelope ({read} bytes)");
             HexDump.Dump(envelope, envelope.Length, "[RX]");
 
-            // -----------------------------------------------------
-            // PHASE 4: DECODE SERVER ENVELOPE
-            // -----------------------------------------------------
-
             AuthEnvelopeDecoder.Decode(envelope);
 
-            // -----------------------------------------------------
-            // PHASE 5: PHASE-2 LOGIN FRAME (STRUCTURAL TEST)
-            // -----------------------------------------------------
-
+            // =====================================================
+            // PHASE 2 — LOGIN FRAME (STRUCTURAL REPLAY)
+            // =====================================================
             Log("building login-frame candidate");
-
-            byte[] inflatedClone = AuthEnvelopeDecoder.LastInflatedPayload;
 
             byte[] loginFrame = AuthFrameBuilder.Build(
                 messageType: 0x0000,
                 flags: 0xFFFF,
-                phase: 0x0002, // phase-2 attempt
-                inflatedPayload: inflatedClone
+                phase: 0x0002,
+                inflatedPayload: AuthEnvelopeDecoder.LastInflatedPayload
             );
 
             Send(stream, loginFrame, "login-frame");
 
-            // -----------------------------------------------------
-            // PHASE 6: OBSERVE SERVER BEHAVIOR
-            // -----------------------------------------------------
-
+            // =====================================================
+            // PHASE 2 RESPONSE — SERVER CHALLENGE
+            // =====================================================
             Log("waiting for phase-2 login response");
 
-            try
+            read = stream.Read(buffer, 0, buffer.Length);
+            if (read <= 0)
             {
-                while (client.Connected)
-                {
-                    if (!stream.DataAvailable)
-                    {
-                        Thread.Sleep(50);
-                        continue;
-                    }
-
-                    int r = stream.Read(buffer, 0, buffer.Length);
-                    if (r <= 0)
-                    {
-                        Log("server closed connection");
-                        break;
-                    }
-
-                    byte[] pkt = buffer.Take(r).ToArray();
-                    string fname = $"captures/server-response-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}.bin";
-                    File.WriteAllBytes(fname, pkt);
-
-                    Log($"received {r} bytes");
-                    HexDump.Dump(pkt, pkt.Length, "[RX]");
-                }
-            }
-            catch (IOException)
-            {
-                // This timeout is EXPECTED if the server rejects or ignores the login frame
-                Log("no phase-2 response (timeout reached)");
-                Log("server is enforcing protocol semantics — boundary confirmed");
+                Log("server closed connection");
+                return;
             }
 
-            Log("exit");
+            byte[] phase2 = buffer.Take(read).ToArray();
+            File.WriteAllBytes("captures/phase2-challenge.bin", phase2);
+
+            Log($"received {read} bytes");
+            HexDump.Dump(phase2, phase2.Length, "[RX]");
+
+            Phase2ChallengeDecoder.Decode(phase2);
+
+            Log("complete — exiting cleanly");
         }
 
-        // =========================================================
-        // Helpers
-        // =========================================================
-
-        private static void Send(NetworkStream stream, byte[] data, string label)
+        private static void Send(NetworkStream s, byte[] data, string label)
         {
-            stream.Write(data, 0, data.Length);
-            stream.Flush();
+            s.Write(data, 0, data.Length);
+            s.Flush();
             Log($"sent {label} ({data.Length} bytes)");
         }
 

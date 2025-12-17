@@ -1,62 +1,45 @@
 using System;
 using System.IO;
-using System.Text;
+using System.Linq;
 
 namespace SocketClient.Protocol
 {
-    public static class Phase2LoginResponseDecoder
+    internal static class Phase2ChallengeDecoder
     {
-        public static void Decode(byte[] packet)
+        public static byte[] Decode(byte[] frame)
         {
-            Console.WriteLine("[decode] PHASE2 login response");
-            Console.WriteLine($"[decode] total length = {packet.Length}");
+            Console.WriteLine("[phase2] decoding server challenge");
 
-            int offset = 0;
+            ushort totalLen = ReadU16(frame, 0);
+            ushort msgType  = ReadU16(frame, 2);
+            ushort phase    = ReadU16(frame, 6);
+            ushort flags    = ReadU16(frame, 8);
+            uint   sig      = ReadU32(frame, 10);
 
-            ushort totalLen = ReadU16(packet, ref offset);
-            ushort msgType  = ReadU16(packet, ref offset);
-            ushort flags    = ReadU16(packet, ref offset);
-            ushort phase    = ReadU16(packet, ref offset);
-            ushort reserved = ReadU16(packet, ref offset);
+            Console.WriteLine($"[phase2] totalLen = {totalLen}");
+            Console.WriteLine($"[phase2] msgType  = 0x{msgType:X4}");
+            Console.WriteLine($"[phase2] phase    = 0x{phase:X4}");
+            Console.WriteLine($"[phase2] flags    = 0x{flags:X4}");
+            Console.WriteLine($"[phase2] sig      = 0x{sig:X8}");
 
-            Console.WriteLine($"[decode] totalLen = {totalLen}");
-            Console.WriteLine($"[decode] msgType  = 0x{msgType:X4}");
-            Console.WriteLine($"[decode] flags    = 0x{flags:X4}");
-            Console.WriteLine($"[decode] phase    = 0x{phase:X4}");
-            Console.WriteLine($"[decode] reserved = 0x{reserved:X4}");
+            int payloadOffset = 14;
+            byte[] payload = frame.Skip(payloadOffset).ToArray();
 
-            int payloadLen = packet.Length - offset;
-            Console.WriteLine($"[decode] payload length = {payloadLen}");
+            Console.WriteLine($"[phase2] payload length = {payload.Length}");
+            HexDump.Dump(payload, Math.Min(payload.Length, 256), "[phase2-payload]");
 
-            DumpLayout(packet, offset);
+            File.WriteAllBytes(
+                $"captures/phase2-payload-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}.bin",
+                payload
+            );
+
+            return payload;
         }
 
-        private static ushort ReadU16(byte[] buf, ref int off)
-        {
-            ushort v = (ushort)((buf[off] << 8) | buf[off + 1]);
-            off += 2;
-            return v;
-        }
+        private static ushort ReadU16(byte[] b, int o)
+            => (ushort)((b[o] << 8) | b[o + 1]);
 
-        private static void DumpLayout(byte[] buf, int start)
-        {
-            Console.WriteLine("[layout] offset  size  description");
-
-            int off = start;
-            int index = 0;
-
-            while (off < buf.Length)
-            {
-                int remaining = buf.Length - off;
-                int size = Math.Min(16, remaining);
-
-                Console.WriteLine(
-                    $"[layout] 0x{off:X4}  {size,4}  {BitConverter.ToString(buf, off, size)}"
-                );
-
-                off += size;
-                index++;
-            }
-        }
+        private static uint ReadU32(byte[] b, int o)
+            => (uint)((b[o] << 24) | (b[o + 1] << 16) | (b[o + 2] << 8) | b[o + 3]);
     }
 }
