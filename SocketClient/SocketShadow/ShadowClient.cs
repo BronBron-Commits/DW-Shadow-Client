@@ -26,14 +26,14 @@ namespace SocketClient
             Log($"connected @ {sw.ElapsedMilliseconds}ms");
 
             using var stream = client.GetStream();
-            stream.ReadTimeout = 8000;
-            stream.WriteTimeout = 8000;
+            stream.ReadTimeout = 5000;
+            stream.WriteTimeout = 5000;
 
             Thread.Sleep(TimingProfile.AfterConnectDelay);
 
-            // -------------------------------------------------
-            // CLIENT HELLO (verified)
-            // -------------------------------------------------
+            // -------------------------------
+            // PHASE 1: CLIENT HELLO
+            // -------------------------------
             byte[] clientHello =
             {
                 0x00, 0x0A,
@@ -44,48 +44,53 @@ namespace SocketClient
             };
 
             Send(stream, clientHello, "client-hello");
-            Thread.Sleep(TimingProfile.BeforeLoginDelay);
 
-            // -------------------------------------------------
-            // PHASE 1 RESPONSE
-            // -------------------------------------------------
-            byte[] phase1 = ReadFrame(stream, "phase1");
+            // -------------------------------
+            // RECEIVE PHASE-1 ENVELOPE
+            // -------------------------------
+            byte[] buffer = new byte[8192];
+            int read = stream.Read(buffer, 0, buffer.Length);
+            if (read <= 0)
+            {
+                Log("server closed connection");
+                return;
+            }
+
+            byte[] phase1 = buffer.Take(read).ToArray();
+            File.WriteAllBytes("captures/phase1.bin", phase1);
+
+            Log($"received phase1 ({read} bytes)");
+            HexDump.Dump(phase1, phase1.Length, "[RX]");
+
             AuthEnvelopeDecoder.Decode(phase1);
 
-            // -------------------------------------------------
-            // LOGIN FRAME (STRUCTURAL ONLY — already verified)
-            // -------------------------------------------------
+            // -------------------------------
+            // SEND LOGIN FRAME (INTENTIONALLY INVALID)
+            // -------------------------------
             Log("sending login-frame candidate");
-            byte[] loginFrame = AuthFrameBuilder.BuildPhase2Probe();
-            Send(stream, loginFrame, "login-frame");
+            Send(stream, clientHello, "login-frame");
 
-            // -------------------------------------------------
-            // PHASE 2 SERVER CHALLENGE (CAPTURE ONLY)
-            // -------------------------------------------------
+            // -------------------------------
+            // RECEIVE PHASE-2 (OR REPLAY)
+            // -------------------------------
             Log("waiting for phase-2 challenge");
-            byte[] phase2 = ReadFrame(stream, "phase2");
 
-            Phase2ChallengeDecoder.DecodeHeaderOnly(phase2);
-
-            Log("phase-2 captured successfully — exiting cleanly");
-        }
-
-        private static byte[] ReadFrame(NetworkStream stream, string label)
-        {
-            var buffer = new byte[8192];
-            int read = stream.Read(buffer, 0, buffer.Length);
-
+            read = stream.Read(buffer, 0, buffer.Length);
             if (read <= 0)
-                throw new IOException("server closed connection");
+            {
+                Log("server closed connection");
+                return;
+            }
 
-            byte[] frame = buffer.Take(read).ToArray();
-            string path = $"captures/{label}-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}.bin";
-            File.WriteAllBytes(path, frame);
+            byte[] phase2 = buffer.Take(read).ToArray();
+            File.WriteAllBytes("captures/phase2.bin", phase2);
 
-            Log($"received {label} ({read} bytes)");
-            HexDump.Dump(frame, frame.Length, "[RX]");
+            Log($"received phase2 ({read} bytes)");
+            HexDump.Dump(phase2, phase2.Length, "[RX]");
 
-            return frame;
+            Phase2LoginChallengeDecoder.Decode(phase2);
+
+            Log("phase-2 captured successfully - exiting cleanly");
         }
 
         private static void Send(NetworkStream s, byte[] data, string label)
