@@ -31,9 +31,9 @@ namespace SocketClient
 
             Thread.Sleep(TimingProfile.AfterConnectDelay);
 
-            // -------------------------------
-            // PHASE 1: CLIENT HELLO
-            // -------------------------------
+            // -------------------------------------------------
+            // CLIENT HELLO (VERIFIED)
+            // -------------------------------------------------
             byte[] clientHello =
             {
                 0x00, 0x0A,
@@ -45,9 +45,9 @@ namespace SocketClient
 
             Send(stream, clientHello, "client-hello");
 
-            // -------------------------------
-            // RECEIVE PHASE-1 ENVELOPE
-            // -------------------------------
+            // -------------------------------------------------
+            // RECEIVE PHASE-1 CAPABILITIES
+            // -------------------------------------------------
             byte[] buffer = new byte[8192];
             int read = stream.Read(buffer, 0, buffer.Length);
             if (read <= 0)
@@ -64,33 +64,54 @@ namespace SocketClient
 
             AuthEnvelopeDecoder.Decode(phase1);
 
-            // -------------------------------
-            // SEND LOGIN FRAME (INTENTIONALLY INVALID)
-            // -------------------------------
-            Log("sending login-frame candidate");
-            Send(stream, clientHello, "login-frame");
-
-            // -------------------------------
-            // RECEIVE PHASE-2 (OR REPLAY)
-            // -------------------------------
-            Log("waiting for phase-2 challenge");
-
-            read = stream.Read(buffer, 0, buffer.Length);
-            if (read <= 0)
+            // -------------------------------------------------
+            // PHASE-1 ACK (EXPLICIT)
+            // -------------------------------------------------
+            // NOTE:
+            // This MUST match the real client ACK.
+            // Replace this placeholder with captured bytes.
+            byte[] phase1Ack =
             {
-                Log("server closed connection");
-                return;
+                // <<< REPLACE WITH WIRESHARK-CAPTURED ACK >>>
+                0x00, 0x0A,
+                0x00, 0x02,
+                0x00, 0x24,
+                0x00, 0x03,
+                0x00, 0x00
+            };
+
+            Log("sending phase1-ack");
+            Send(stream, phase1Ack, "phase1-ack");
+
+            // -------------------------------------------------
+            // OBSERVE SERVER RESPONSE
+            // -------------------------------------------------
+            Log("waiting for server response");
+
+            while (client.Connected)
+            {
+                if (!stream.DataAvailable)
+                {
+                    Thread.Sleep(50);
+                    continue;
+                }
+
+                int r = stream.Read(buffer, 0, buffer.Length);
+                if (r <= 0)
+                {
+                    Log("server closed connection");
+                    break;
+                }
+
+                byte[] pkt = buffer.Take(r).ToArray();
+                string path = $"captures/server-after-ack-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}.bin";
+                File.WriteAllBytes(path, pkt);
+
+                Log($"received {r} bytes");
+                HexDump.Dump(pkt, pkt.Length, "[RX]");
             }
 
-            byte[] phase2 = buffer.Take(read).ToArray();
-            File.WriteAllBytes("captures/phase2.bin", phase2);
-
-            Log($"received phase2 ({read} bytes)");
-            HexDump.Dump(phase2, phase2.Length, "[RX]");
-
-            Phase2LoginChallengeDecoder.Decode(phase2);
-
-            Log("phase-2 captured successfully - exiting cleanly");
+            Log("exit");
         }
 
         private static void Send(NetworkStream s, byte[] data, string label)
