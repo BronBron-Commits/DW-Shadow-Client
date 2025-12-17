@@ -5,71 +5,109 @@ using System.Threading;
 
 namespace SocketClient
 {
-    internal class ShadowClient
+    internal static class ShadowClient
     {
         private const string HOST = "auth.deltaworlds.com";
         private const int PORT = 6671;
 
         static void Main(string[] args)
         {
-            Console.WriteLine("[shadow] starting");
+            Log("starting");
 
-            var sw = Stopwatch.StartNew();
+            var stopwatch = Stopwatch.StartNew();
 
-            using var client = new TcpClient();
-            client.NoDelay = true;
+            using var client = new TcpClient
+            {
+                NoDelay = true
+            };
 
-            Console.WriteLine("[shadow] connecting...");
+            // -------------------------------
+            // PHASE 1: TCP CONNECT
+            // -------------------------------
+
+            Log("connecting...");
             client.Connect(HOST, PORT);
-
-            Console.WriteLine($"[shadow] connected @ {sw.ElapsedMilliseconds}ms");
+            Log($"connected @ {stopwatch.ElapsedMilliseconds}ms");
 
             using var stream = client.GetStream();
+            stream.ReadTimeout = 2000;
+            stream.WriteTimeout = 2000;
 
-            // small delay to mirror harness behavior
             Thread.Sleep(TimingProfile.AfterConnectDelay);
 
-            Console.WriteLine("[shadow] entering passive observe mode");
+            // -------------------------------
+            // PHASE 2: REAL CLIENT HELLO
+            // -------------------------------
 
-            // -------------------------------------------------
-            // PHASE 2: minimal client probe
-            // -------------------------------------------------
+            byte[] clientHello =
+            {
+                0x00, 0x0A,
+                0x00, 0x02,
+                0x00, 0x24,
+                0x00, 0x03,
+                0x00, 0x00
+            };
 
+            Log("sending client hello");
+            SendFrame(stream, clientHello, "client hello");
+
+            // Small delay observed in SDK
             Thread.Sleep(TimingProfile.BeforeLoginDelay);
 
-            // Minimal non-zero probe frame
-            byte[] probe = new byte[] { 0x00, 0x00, 0x00, 0x01 };
+            // -------------------------------
+            // PHASE 2b: PLACEHOLDER FOLLOW-UP
+            // -------------------------------
 
+            Log("sending placeholder follow-up");
+
+            byte[] followUpFrame =
+            {
+                0x00, 0x00, 0x00, 0x00
+            };
+
+            SendFrame(stream, followUpFrame, "follow-up");
+
+            Log("handshake frames sent, entering receive loop");
+
+            // -------------------------------
+            // PHASE 3: RECEIVE
+            // -------------------------------
+
+            ReceiveLoop(client, stream);
+
+            Log("exiting");
+        }
+
+        private static void SendFrame(NetworkStream stream, byte[] frame, string label)
+        {
             try
             {
-                stream.Write(probe, 0, probe.Length);
+                stream.Write(frame, 0, frame.Length);
                 stream.Flush();
-                Console.WriteLine("[shadow] sent probe frame (4 bytes)");
+                Log($"sent {label} ({frame.Length} bytes)");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[shadow] write exception: {ex.Message}");
-                return;
+                Log($"WRITE ERROR [{label}]: {ex.GetType().Name} {ex.Message}");
+                throw;
             }
+        }
 
-            // -------------------------------------------------
-            // PHASE 3: safe receive loop
-            // -------------------------------------------------
-
+        private static void ReceiveLoop(TcpClient client, NetworkStream stream)
+        {
             var buffer = new byte[8192];
-            stream.ReadTimeout = 2000;
 
             while (true)
             {
                 if (!client.Connected)
                 {
-                    Console.WriteLine("[shadow] socket disconnected");
+                    Log("socket disconnected");
                     break;
                 }
 
                 if (!stream.DataAvailable)
                 {
-                    Thread.Sleep(10);
+                    Thread.Sleep(50);
                     continue;
                 }
 
@@ -80,20 +118,23 @@ namespace SocketClient
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"[shadow] read exception: {ex.GetType().Name} {ex.Message}");
+                    Log($"READ ERROR: {ex.GetType().Name} {ex.Message}");
                     break;
                 }
 
                 if (read == 0)
                 {
-                    Console.WriteLine("[shadow] server closed connection");
+                    Log("server closed connection");
                     break;
                 }
 
                 HexDump.Dump(buffer, read, "[RX]");
             }
+        }
 
-            Console.WriteLine("[shadow] exiting");
+        private static void Log(string message)
+        {
+            Console.WriteLine($"[shadow] {message}");
         }
     }
 }
