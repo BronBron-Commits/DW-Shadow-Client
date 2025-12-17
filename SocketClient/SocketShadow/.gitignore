@@ -1,12 +1,11 @@
-# SDK / native binaries
+# Build output
+bin/
+obj/
+
+# SDK / external binaries (DO NOT COMMIT)
 *.dll
 *.pdb
-Sdk/
-SdkCore.*
+*.deps.json
 
-# Captures / artifacts
+# Captures
 captures/
-*.bin
-
-# Local junk
-git/

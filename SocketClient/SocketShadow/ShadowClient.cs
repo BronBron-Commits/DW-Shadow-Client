@@ -1,10 +1,8 @@
 using System;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Net.Sockets;
 using System.Threading;
-using SocketClient.Protocol;
 
 namespace SocketClient
 {
@@ -12,27 +10,31 @@ namespace SocketClient
     {
         private const string HOST = "auth.deltaworlds.com";
         private const int PORT = 6671;
+        private const int PHASE1_LEN = 107;
 
         static void Main()
         {
             Log("starting");
+
             Directory.CreateDirectory("captures");
 
             var sw = Stopwatch.StartNew();
 
-            using var client = new TcpClient { NoDelay = true };
+            using var client = new TcpClient
+            {
+                NoDelay = true // critical: match SDK behavior
+            };
+
             Log("connecting...");
             client.Connect(HOST, PORT);
             Log($"connected @ {sw.ElapsedMilliseconds}ms");
 
             using var stream = client.GetStream();
-            stream.ReadTimeout = 5000;
-            stream.WriteTimeout = 5000;
-
-            Thread.Sleep(TimingProfile.AfterConnectDelay);
+            stream.ReadTimeout = 8000;
+            stream.WriteTimeout = 8000;
 
             // -------------------------------------------------
-            // CLIENT HELLO (VERIFIED)
+            // PHASE 1: CLIENT HELLO (VERIFIED)
             // -------------------------------------------------
             byte[] clientHello =
             {
@@ -46,84 +48,81 @@ namespace SocketClient
             Send(stream, clientHello, "client-hello");
 
             // -------------------------------------------------
-            // RECEIVE PHASE-1 CAPABILITIES
+            // PHASE 1: RECEIVE SERVER ENVELOPE (EXACT 107 BYTES)
             // -------------------------------------------------
-            byte[] buffer = new byte[8192];
+            byte[] phase1 = new byte[PHASE1_LEN];
+            int offset = 0;
+
+            while (offset < PHASE1_LEN)
+            {
+                int n = stream.Read(phase1, offset, PHASE1_LEN - offset);
+                if (n <= 0)
+                {
+                    Log("server closed connection during phase1");
+                    return;
+                }
+                offset += n;
+            }
+
+            File.WriteAllBytes("captures/server-phase1.bin", phase1);
+
+            Log($"received phase1 ({PHASE1_LEN} bytes)");
+            HexDump(phase1);
+
+            // -------------------------------------------------
+            // IMPORTANT: DO NOT SEND ANYTHING HERE
+            // Let TCP ACK occur naturally
+            // -------------------------------------------------
+            Log("phase1 fully read; idling to allow TCP ACK");
+
+            // Small idle window to ensure ACK emission
+            Thread.Sleep(500);
+
+            // -------------------------------------------------
+            // PHASE 2: WAIT FOR SERVER RESPONSE
+            // -------------------------------------------------
+            Log("waiting for server response...");
+
+            var buffer = new byte[8192];
             int read = stream.Read(buffer, 0, buffer.Length);
+
             if (read <= 0)
             {
-                Log("server closed connection");
+                Log("no response after phase1");
                 return;
             }
 
-            byte[] phase1 = buffer.Take(read).ToArray();
-            File.WriteAllBytes("captures/phase1.bin", phase1);
+            byte[] phase2 = new byte[read];
+            Array.Copy(buffer, phase2, read);
 
-            Log($"received phase1 ({read} bytes)");
-            HexDump.Dump(phase1, phase1.Length, "[RX]");
+            File.WriteAllBytes("captures/server-phase2.bin", phase2);
 
-            AuthEnvelopeDecoder.Decode(phase1);
+            Log($"received server response ({read} bytes)");
+            HexDump(phase2);
 
-            // -------------------------------------------------
-            // PHASE-1 ACK (EXPLICIT)
-            // -------------------------------------------------
-            // NOTE:
-            // This MUST match the real client ACK.
-            // Replace this placeholder with captured bytes.
-            byte[] phase1Ack =
-            {
-                // <<< REPLACE WITH WIRESHARK-CAPTURED ACK >>>
-                0x00, 0x0A,
-                0x00, 0x02,
-                0x00, 0x24,
-                0x00, 0x03,
-                0x00, 0x00
-            };
-
-            Log("sending phase1-ack");
-            Send(stream, phase1Ack, "phase1-ack");
-
-            // -------------------------------------------------
-            // OBSERVE SERVER RESPONSE
-            // -------------------------------------------------
-            Log("waiting for server response");
-
-            while (client.Connected)
-            {
-                if (!stream.DataAvailable)
-                {
-                    Thread.Sleep(50);
-                    continue;
-                }
-
-                int r = stream.Read(buffer, 0, buffer.Length);
-                if (r <= 0)
-                {
-                    Log("server closed connection");
-                    break;
-                }
-
-                byte[] pkt = buffer.Take(r).ToArray();
-                string path = $"captures/server-after-ack-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}.bin";
-                File.WriteAllBytes(path, pkt);
-
-                Log($"received {r} bytes");
-                HexDump.Dump(pkt, pkt.Length, "[RX]");
-            }
-
-            Log("exit");
+            Log("done");
         }
 
         private static void Send(NetworkStream s, byte[] data, string label)
         {
             s.Write(data, 0, data.Length);
             s.Flush();
-            Log($"sent {label} ({data.Length} bytes)");
+            Log($"sent {label}");
         }
 
         private static void Log(string msg)
         {
             Console.WriteLine($"[shadow] {msg}");
+        }
+
+        private static void HexDump(byte[] data)
+        {
+            Console.Write("[RX] ");
+            for (int i = 0; i < data.Length; i++)
+            {
+                Console.Write($"{data[i]:X2} ");
+            }
+            Console.WriteLine();
         }
     }
 }
