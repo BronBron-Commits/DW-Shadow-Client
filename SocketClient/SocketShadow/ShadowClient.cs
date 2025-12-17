@@ -49,7 +49,7 @@ namespace SocketClient
             Thread.Sleep(TimingProfile.AfterConnectDelay);
 
             // -----------------------------------------------------
-            // PHASE 2: REAL CLIENT HELLO (VERIFIED)
+            // PHASE 2: VERIFIED CLIENT HELLO
             // -----------------------------------------------------
 
             byte[] clientHello =
@@ -64,7 +64,6 @@ namespace SocketClient
             Log("sending client hello");
             SendFrame(stream, clientHello, "client hello");
 
-            // Small observed delay before server response
             Thread.Sleep(TimingProfile.BeforeLoginDelay);
 
             // -----------------------------------------------------
@@ -94,12 +93,10 @@ namespace SocketClient
 
             byte[] envelope = buffer.Take(read).ToArray();
 
-            // Save raw envelope
-            string path = Path.Combine("captures", "server-envelope.bin");
-            File.WriteAllBytes(path, envelope);
-            Log($"saved raw envelope to {path}");
+            string envPath = Path.Combine("captures", "server-envelope.bin");
+            File.WriteAllBytes(envPath, envelope);
+            Log($"saved raw envelope to {envPath}");
 
-            // Hex dump (sanity)
             HexDump.Dump(envelope, envelope.Length, "[RX]");
 
             // -----------------------------------------------------
@@ -108,11 +105,35 @@ namespace SocketClient
 
             AuthEnvelopeDecoder.Decode(envelope);
 
-            Log("decode complete, exiting");
+            // -----------------------------------------------------
+            // PHASE 5: PHASE-1 ACK (STATE ADVANCE)
+            // -----------------------------------------------------
+
+            byte[] phase1Ack =
+            {
+                0x00, 0x0A,
+                0x00, 0x02,
+                0x00, 0x24,
+                0x00, 0x03,
+                0x00, 0x00
+            };
+
+            Log("sending phase1 ACK");
+            SendFrame(stream, phase1Ack, "phase1-ack");
+
+            // -----------------------------------------------------
+            // PHASE 6: PASSIVE RECEIVE LOOP (NEXT STATE)
+            // -----------------------------------------------------
+
+            Log("entering receive loop (post-ACK)");
+
+            ReceiveLoop(client, stream);
+
+            Log("exiting");
         }
 
         // =========================================================
-        // Helpers
+        // Networking Helpers
         // =========================================================
 
         private static void SendFrame(NetworkStream stream, byte[] frame, string label)
@@ -129,6 +150,56 @@ namespace SocketClient
                 throw;
             }
         }
+
+        private static void ReceiveLoop(TcpClient client, NetworkStream stream)
+        {
+            var buffer = new byte[8192];
+
+            while (true)
+            {
+                if (!client.Connected)
+                {
+                    Log("socket disconnected");
+                    break;
+                }
+
+                if (!stream.DataAvailable)
+                {
+                    Thread.Sleep(50);
+                    continue;
+                }
+
+                int read;
+                try
+                {
+                    read = stream.Read(buffer, 0, buffer.Length);
+                }
+                catch (Exception ex)
+                {
+                    Log($"READ ERROR: {ex.GetType().Name} {ex.Message}");
+                    break;
+                }
+
+                if (read == 0)
+                {
+                    Log("server closed connection");
+                    break;
+                }
+
+                byte[] packet = buffer.Take(read).ToArray();
+
+                Log($"received {read} bytes (post-ACK)");
+                HexDump.Dump(packet, packet.Length, "[RX]");
+
+                // Save follow-up packets for analysis
+                string fname = $"captures/server-followup-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}.bin";
+                File.WriteAllBytes(fname, packet);
+            }
+        }
+
+        // =========================================================
+        // Logging
+        // =========================================================
 
         private static void Log(string message)
         {
