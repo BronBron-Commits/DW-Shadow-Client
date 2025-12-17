@@ -1,95 +1,251 @@
-# Console Harness — Managed Wrapper
+DW-Shadow-Client™
 
-This repository contains a managed (.NET) console harness used to observe, intercept, and analyze runtime behavior of the DeltaWorlds client stack. It is designed as an investigative and experimental environment rather than a production client.
+DW-Shadow-Client™ is a low-level, socket-accurate research client for the DeltaWorlds authentication protocol.
+It is designed to observe, validate, and replicate the server’s state machine behavior prior to login — not to bypass or emulate the full game client.
 
-The project focuses on understanding protocol flow, state transitions, and cryptographic behavior by operating at the managed runtime level.
+This project focuses on protocol correctness, not feature completeness.
 
-# Purpose
 
-The primary goal of this harness is to make opaque client behavior observable.
+---
 
-Specifically, it is used to:
+Project Goals
 
-Study DeltaWorlds client initialization and login flow
+Establish a byte-accurate baseline for the DeltaWorlds authentication handshake
 
-Observe state-machine transitions during authentication
+Identify state transitions enforced by the server
 
-Intercept and inspect managed cryptographic operations
+Distinguish required, optional, and ignored protocol frames
 
-Experiment with runtime method patching prior to native execution
+Capture and analyze Phase-1 and Phase-2 server behavior
 
-Provide a controlled environment for reverse engineering and documentation
+Build a foundation for future custom clients, tooling, and research
 
-This is not intended to be a drop-in replacement client, but a research tool that informs future client implementations.
 
-# Architecture Overview
+This is not:
 
-The harness is built as a .NET 8.0 x86 console application and acts as a managed interception layer.
+A game client
 
-Key architectural characteristics:
+A bot
 
-Managed-first execution model
+A login bypass
 
-Runtime method patching via Harmony
+A packet replay tool
 
-Cryptographic visibility via BouncyCastle interception
 
-Deterministic startup sequence for patch attachment
 
-Console-driven logging for timing and state observation
+---
 
-The design prioritizes traceability and inspection over performance or abstraction.
+Current Status (Verified)
 
-# Key Components
+✔ Implemented & Confirmed
 
-Managed wrapper project targeting net8.0 (win-x86)
+TCP socket connection to auth.deltaworlds.com:6671
 
-Harmony-based patch scaffolding for runtime interception
+Byte-accurate ClientHello
 
-BouncyCastle crypto hooks for observing encryption paths
+Server Phase-1 envelope reception
 
-Console harness for controlled execution and logging
+Correct envelope parsing
 
-Experimental structure intended to evolve alongside protocol research
+total length
 
-# Intended Use
+message type
 
-This repository is intended for:
+flags
 
-Reverse engineering and protocol analysis
+phase
 
-Runtime behavior research
+reserved
 
-SDK and client state-machine mapping
 
-Cryptographic flow inspection
+Zlib header detection
 
-Supporting documentation and knowledge extraction
+Graceful handling of non-standard compression
 
-It is not intended for public distribution, gameplay, or commercial use.
+Inflate attempted
 
-Project Status
+Failure handled intentionally
 
-This project is in an early, experimental stage.
+Raw payload preserved
 
-# Expect:
 
-Breaking changes
+Phase-1 ACK requirement confirmed
 
-Incomplete features
+ACK is mandatory
 
-Rapid iteration
+Missing or malformed ACK causes silent stall
 
-Exploratory code paths
 
-Stability is not a goal at this stage.
+Server state machine behavior observed
 
-Relationship to Other Work
+Invalid frames → Phase-1 replay
 
-This harness is part of a broader effort to document and understand the DeltaWorlds SDK and client behavior. Findings from this project feed into protocol documentation, client reimplementation efforts, and future rendering or VR-focused clients.
+Incorrect phase advancement → no disconnect, no progress
 
-License and Disclaimer
 
-This repository is for educational and research purposes only.
+Phase-2 challenge capture (read-only)
 
-All trademarks, protocols, and technologies referenced belong to their respective owners. This project does not distribute proprietary assets or binaries.
+Phase-2 frames can be received
+
+Payload is preserved without mutation
+
+
+Capture-only flow is stable
+
+No crashes
+
+No undefined behavior
+
+Deterministic server responses
+
+
+
+
+---
+
+What This Client Does Right Now
+
+1. Connects to the DeltaWorlds auth server
+
+
+2. Sends a verified ClientHello
+
+
+3. Receives and parses the Phase-1 server envelope
+
+
+4. Detects compression format and preserves payload
+
+
+5. Sends a minimal, valid Phase-1 ACK
+
+
+6. Observes server response:
+
+Phase-1 replay or
+
+Phase-2 challenge (depending on ACK correctness)
+
+
+
+7. Logs and exits cleanly
+
+
+
+
+---
+
+What Is Not Implemented (Yet)
+
+❌ Phase-2 challenge response
+
+❌ Cryptographic response generation
+
+❌ Session key derivation
+
+❌ Username / password submission
+
+❌ World or game state logic
+
+
+These are intentionally out of scope until Phase-2 structure is fully understood.
+
+
+---
+
+Why This Matters
+
+The DeltaWorlds authentication protocol is state-driven, not packet-driven.
+
+DW-Shadow-Client™ proves:
+
+You cannot skip states
+
+You cannot replay server frames
+
+You cannot brute-force forward
+
+The server silently enforces protocol correctness
+
+
+This project establishes the first verified, minimal client-side state progression outside of the official client.
+
+
+---
+
+Repository Structure
+
+SocketShadow/
+├── ShadowClient.cs              # Main socket client
+├── TimingProfile.cs             # Observed timing behavior
+├── HexDump.cs                   # Binary inspection helper
+├── Protocol/
+│   ├── AuthEnvelope.cs
+│   ├── AuthEnvelopeDecoder.cs
+│   ├── AuthFrameBuilder.cs
+│   ├── Phase2LoginChallengeDecoder.cs
+└── captures/                    # Raw protocol captures (ignored by git)
+
+
+---
+
+Development Philosophy
+
+State machine first
+
+Observe before modifying
+
+Capture before responding
+
+Fail safely
+
+Never assume packet meaning without evidence
+
+
+Every change is validated against live server behavior, not speculation.
+
+
+---
+
+Roadmap (High Level)
+
+1. Finalize canonical Phase-1 ACK structure
+
+
+2. Identify Phase-2 challenge components:
+
+nonce
+
+capabilities
+
+server seed
+
+
+
+3. Correlate Phase-2 payload with official client behavior
+
+
+4. Implement Phase-2 response (research branch)
+
+
+5. Transition to authenticated session (future)
+
+
+
+
+---
+
+Legal & Ethical Notice
+
+This project is for research and interoperability study only.
+No proprietary assets are redistributed.
+No encryption is bypassed.
+No server behavior is abused.
+
+
+---
+
+Name
+
+DW-Shadow-Client™
+Because it observes the protocol without pretending to be the client.
